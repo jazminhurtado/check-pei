@@ -423,9 +423,9 @@ def main():
         st.markdown("---")
         st.markdown("<small style='color:#999'>Basado en la Guía CEPLAN para el Planeamiento Institucional vigente</small>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("### 📦 Dependencias requeridas")
-        st.code("pip install streamlit anthropic python-docx PyPDF2 reportlab", language="bash")
+        #st.markdown("---")
+        #st.markdown("### 📦 Dependencias requeridas")
+        #st.code("pip install streamlit anthropic python-docx PyPDF2 reportlab", language="bash")
 
     # Área principal
     col1, col2 = st.columns([3, 2])
