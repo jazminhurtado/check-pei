@@ -452,29 +452,22 @@ def main():
         st.markdown('<div class="seccion-titulo">🚀 Iniciar Revisión</div>', unsafe_allow_html=True)
         st.markdown("""
         <div class="info-box">
-            <strong>¿Cómo funciona?</strong><br><br>
-            1️⃣ Sube tu documento PEI<br>
-            2️⃣ La IA analiza cada componente<br>
-            3️⃣ Recibes un semáforo de errores<br>
-            4️⃣ Descarga el informe con observaciones
+            <strong>Elige el modo de análisis:</strong><br><br>
+            🤖 <b>Con IA</b>: análisis inteligente y profundo<br>
+            📋 <b>Sin IA</b>: revisión rápida por reglas CEPLAN<br><br>
+            Ambos generan reporte descargable
         </div>
         """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        btn_analizar = st.button("🤖 Analizar con IA (Gemini)", use_container_width=True)
+        btn_sin_ia   = st.button("📋 Revisar sin IA (rápido)", use_container_width=True)
 
-        btn_analizar = st.button("🔍 Analizar PEI con IA", use_container_width=True)
-
-    # ─── Procesamiento ───────────────────────────────────────────────────────
-    if btn_analizar:
-        if not api_key:
-            st.error("⚠️ Ingresa tu API Key de Google Gemini en el panel lateral para continuar.")
-            return
-
-        # Extraer texto
+    # ─── Extracción de texto (común para ambos modos) ────────────────────────
+    def extraer_texto_archivo():
         texto_pei = ""
-
         if archivo:
             bytes_archivo = archivo.read()
             extension = archivo.name.split(".")[-1].lower()
-
             with st.spinner("📄 Extrayendo texto del documento..."):
                 if extension == "docx" and DOCX_AVAILABLE:
                     texto_pei = extraer_texto_docx(bytes_archivo)
@@ -482,29 +475,123 @@ def main():
                     texto_pei = extraer_texto_pdf(bytes_archivo)
                 elif extension == "txt":
                     texto_pei = extraer_texto_txt(bytes_archivo)
-
         elif texto_manual and texto_manual.strip():
             texto_pei = texto_manual.strip()
+        return texto_pei
 
+    # ─── MODO SIN IA: revisión por reglas ────────────────────────────────────
+    if btn_sin_ia:
+        texto_pei = extraer_texto_archivo()
         if not texto_pei or len(texto_pei) < 50:
-            st.error("❌ No se pudo extraer texto suficiente. Verifica el archivo o pega el texto manualmente.")
-            return
+            st.error("❌ No se pudo extraer texto suficiente.")
+            st.stop()
 
         st.success(f"✅ Texto extraído: {len(texto_pei):,} caracteres")
 
-        # Configurar cliente con API key del usuario
+        def revisar_sin_ia(texto, entidad):
+            texto_lower = texto.lower()
+            def check(palabras_clave):
+                return any(p in texto_lower for p in palabras_clave)
+
+            componentes = {}
+
+            # Misión
+            tiene_mision = check(["misión", "mision", "somos", "institución que"])
+            componentes["mision"] = {
+                "estado": "CORRECTO" if tiene_mision else "ERROR",
+                "puntaje": 80 if tiene_mision else 20,
+                "observaciones": [] if tiene_mision else ["No se detectó una sección de Misión institucional"],
+                "recomendaciones": [] if tiene_mision else ["Incluir la misión institucional siguiendo la Guía CEPLAN"]
+            }
+
+            # Situación futura
+            tiene_sfd = check(["situación futura", "situacion futura", "futuro deseado", "al año", "al 20"])
+            componentes["situacion_futura_deseada"] = {
+                "estado": "CORRECTO" if tiene_sfd else "REVISAR",
+                "puntaje": 75 if tiene_sfd else 35,
+                "observaciones": [] if tiene_sfd else ["No se detectó la Situación Futura Deseada"],
+                "recomendaciones": [] if tiene_sfd else ["Definir claramente la situación futura deseada con horizonte temporal"]
+            }
+
+            # OEI
+            tiene_oei = check(["objetivo estratégico", "objetivo estrategico", "oei"])
+            componentes["objetivos_estrategicos_institucionales"] = {
+                "estado": "CORRECTO" if tiene_oei else "ERROR",
+                "puntaje": 80 if tiene_oei else 15,
+                "observaciones": [] if tiene_oei else ["No se detectaron Objetivos Estratégicos Institucionales (OEI)"],
+                "recomendaciones": [] if tiene_oei else ["Formular los OEI según estructura CEPLAN: verbo + objeto + condición"]
+            }
+
+            # AEI
+            tiene_aei = check(["acción estratégica", "accion estrategica", "aei"])
+            componentes["acciones_estrategicas_institucionales"] = {
+                "estado": "CORRECTO" if tiene_aei else "ERROR",
+                "puntaje": 80 if tiene_aei else 15,
+                "observaciones": [] if tiene_aei else ["No se detectaron Acciones Estratégicas Institucionales (AEI)"],
+                "recomendaciones": [] if tiene_aei else ["Formular las AEI vinculadas a cada OEI"]
+            }
+
+            # Indicadores
+            tiene_ind = check(["indicador", "meta", "línea base", "linea base"])
+            componentes["indicadores"] = {
+                "estado": "CORRECTO" if tiene_ind else "REVISAR",
+                "puntaje": 70 if tiene_ind else 30,
+                "observaciones": [] if tiene_ind else ["No se detectaron indicadores con línea base y metas"],
+                "recomendaciones": [] if tiene_ind else ["Incluir indicadores medibles con línea base, fuente y metas anuales"]
+            }
+
+            # Ruta estratégica
+            tiene_ruta = check(["ruta estratégica", "ruta estrategica", "prioridad", "vinculación", "vinculacion"])
+            componentes["ruta_estrategica"] = {
+                "estado": "CORRECTO" if tiene_ruta else "REVISAR",
+                "puntaje": 65 if tiene_ruta else 30,
+                "observaciones": [] if tiene_ruta else ["No se detectó la ruta estratégica"],
+                "recomendaciones": [] if tiene_ruta else ["Establecer la ruta estratégica con priorización de OEI"]
+            }
+
+            puntajes = [v["puntaje"] for v in componentes.values()]
+            puntaje_global = int(sum(puntajes) / len(puntajes))
+            errores = [v["observaciones"][0] for v in componentes.values() if v["estado"] == "ERROR" and v["observaciones"]]
+            fortalezas = [f"Componente '{k}' correctamente identificado" for k, v in componentes.items() if v["estado"] == "CORRECTO"]
+
+            return {
+                "puntaje_global": puntaje_global,
+                "nivel_riesgo": "BAJO" if puntaje_global >= 70 else "MEDIO" if puntaje_global >= 45 else "ALTO",
+                "resumen_ejecutivo": f"Revisión automática por reglas CEPLAN. Puntaje: {puntaje_global}/100. Se detectaron {len(errores)} errores críticos.",
+                "componentes": componentes,
+                "errores_criticos": errores,
+                "fortalezas": fortalezas,
+                "listo_para_ceplan": puntaje_global >= 70
+            }
+
+        analisis = revisar_sin_ia(texto_pei, entidad)
+        st.info("📋 Análisis realizado por reglas CEPLAN (sin IA). Para mayor precisión usa el modo con IA.")
+
+    # ─── MODO CON IA ─────────────────────────────────────────────────────────
+    elif btn_analizar:
+        if not api_key:
+            st.error("⚠️ Ingresa tu API Key de Google Gemini en el panel lateral para continuar.")
+            st.stop()
+
+        texto_pei = extraer_texto_archivo()
+        if not texto_pei or len(texto_pei) < 50:
+            st.error("❌ No se pudo extraer texto suficiente. Verifica el archivo o pega el texto manualmente.")
+            st.stop()
+
+        st.success(f"✅ Texto extraído: {len(texto_pei):,} caracteres")
         genai.configure(api_key=api_key)
 
-        # Analizar con IA
         with st.spinner("🤖 Analizando tu PEI con IA... esto puede tomar 15-30 segundos"):
             try:
                 analisis = analizar_pei_con_ia(texto_pei, entidad)
             except json.JSONDecodeError as e:
                 st.error(f"❌ Error al procesar respuesta de la IA: {e}")
-                return
+                st.stop()
             except Exception as e:
                 st.error(f"❌ Error al conectar con la API: {str(e)}")
-                return
+                st.stop()
+    else:
+        st.stop()
 
         # ─── Mostrar resultados ───────────────────────────────────────────────
 
