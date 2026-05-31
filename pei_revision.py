@@ -403,12 +403,16 @@ def main():
         st.markdown("---")
         st.markdown("### 📋 ¿Qué analiza el sistema?")
         componentes_lista = [
-            "✅ Situación futura deseada",
-            "✅ Misión institucional",
+            "✅ Definición Situación Futura Deseada",
             "✅ Objetivos Estratégicos (OEI)",
             "✅ Acciones Estratégicas (AEI)",
-            "✅ Indicadores",
+            "✅ Misión institucional",
             "✅ Ruta estratégica",
+            "✅ Anexo-B1",
+            "✅ Anexo-B2",
+            "✅ Anexo-B3",
+            "✅ Indicadores",
+            
         ]
         for c in componentes_lista:
             st.markdown(f"<small>{c}</small>", unsafe_allow_html=True)
