@@ -1,10 +1,10 @@
 """
 CEPLAN Checker — Revisora de PEI con IA
-Desarrollado con: Python + Streamlit + Anthropic Claude API
+Desarrollado con: Python + Streamlit + Google Gemini API
 """
 
 import streamlit as st
-import anthropic
+import google.generativeai as genai
 import io
 import json
 from datetime import datetime
@@ -200,76 +200,69 @@ def extraer_texto_txt(archivo_bytes: bytes) -> str:
 # ─── Función principal de análisis IA ───────────────────────────────────────
 
 def analizar_pei_con_ia(texto_pei: str, entidad: str) -> dict:
-    """Llama a la API de Anthropic para analizar el PEI."""
+    """Llama a la API de Google Gemini para analizar el PEI."""
 
-    cliente = anthropic.Anthropic()
-
-    prompt_sistema = """Eres un experto revisor de Planes Estratégicos Institucionales (PEI) del Estado peruano, con profundo conocimiento de la normativa CEPLAN.
+    prompt_completo = f"""Eres un experto revisor de Planes Estratégicos Institucionales (PEI) del Estado peruano, con profundo conocimiento de la normativa CEPLAN.
 
 Tu tarea es revisar el documento PEI que se te proporciona y generar un informe estructurado en JSON con el siguiente formato EXACTO (responde SOLO con el JSON, sin texto adicional ni backticks):
 
-{
+{{
   "puntaje_global": <número 0-100>,
   "nivel_riesgo": "<BAJO|MEDIO|ALTO>",
   "resumen_ejecutivo": "<2-3 oraciones sobre el estado general del PEI>",
-  "componentes": {
-    "mision": {
+  "componentes": {{
+    "mision": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>", "<obs2>"],
       "recomendaciones": ["<rec1>", "<rec2>"]
-    },
-    "situacion_futura_deseada": {
+    }},
+    "situacion_futura_deseada": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>"],
       "recomendaciones": ["<rec1>"]
-    },
-    "objetivos_estrategicos_institucionales": {
+    }},
+    "objetivos_estrategicos_institucionales": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>"],
       "recomendaciones": ["<rec1>"]
-    },
-    "acciones_estrategicas_institucionales": {
+    }},
+    "acciones_estrategicas_institucionales": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>"],
       "recomendaciones": ["<rec1>"]
-    },
-    "indicadores": {
+    }},
+    "indicadores": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>"],
       "recomendaciones": ["<rec1>"]
-    },
-    "ruta_estrategica": {
+    }},
+    "ruta_estrategica": {{
       "estado": "<CORRECTO|REVISAR|ERROR>",
       "puntaje": <0-100>,
       "observaciones": ["<obs1>"],
       "recomendaciones": ["<rec1>"]
-    }
-  },
+    }}
+  }},
   "errores_criticos": ["<error crítico 1>", "<error crítico 2>"],
   "fortalezas": ["<fortaleza 1>", "<fortaleza 2>"],
   "listo_para_ceplan": <true|false>
-}
+}}
 
-Evalúa con rigor según la Guía CEPLAN para el Planeamiento Institucional vigente. Si el documento está incompleto, señálalo claramente. Si falta algún componente, márcalo como ERROR."""
+Evalúa con rigor según la Guía CEPLAN para el Planeamiento Institucional vigente. Si el documento está incompleto, señálalo claramente. Si falta algún componente, márcalo como ERROR.
 
-    prompt_usuario = f"""Entidad: {entidad if entidad else 'No especificada'}
+Entidad: {entidad if entidad else 'No especificada'}
 
 DOCUMENTO PEI A REVISAR:
 {texto_pei[:8000]}"""
 
-    respuesta = cliente.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2500,
-        system=prompt_sistema,
-        messages=[{"role": "user", "content": prompt_usuario}]
-    )
-
-    texto_respuesta = respuesta.content[0].text.strip()
+    modelo = genai.GenerativeModel("gemini-1.5-flash")
+    respuesta = modelo.generate_content(prompt_completo)
+    texto_respuesta = respuesta.text.strip()
 
     # Limpiar posibles backticks
     texto_respuesta = texto_respuesta.replace("```json", "").replace("```", "").strip()
@@ -399,10 +392,10 @@ def main():
         st.markdown("### ⚙️ Configuración")
 
         api_key = st.text_input(
-            "API Key de Anthropic",
+            "API Key de Google Gemini",
             type="password",
-            placeholder="sk-ant-...",
-            help="Obtén tu clave en console.anthropic.com"
+            placeholder="AIza...",
+            help="Obtén tu clave gratis en aistudio.google.com"
         )
 
         entidad = st.text_input("🏢 Nombre de la Entidad", placeholder="Ej: Municipalidad Distrital de San Bartolo")
@@ -423,9 +416,7 @@ def main():
         st.markdown("---")
         st.markdown("<small style='color:#999'>Basado en la Guía CEPLAN para el Planeamiento Institucional vigente</small>", unsafe_allow_html=True)
 
-        #st.markdown("---")
-        #st.markdown("### 📦 Dependencias requeridas")
-        #st.code("pip install streamlit anthropic python-docx PyPDF2 reportlab", language="bash")
+
 
     # Área principal
     col1, col2 = st.columns([3, 2])
@@ -474,7 +465,7 @@ def main():
     # ─── Procesamiento ───────────────────────────────────────────────────────
     if btn_analizar:
         if not api_key:
-            st.error("⚠️ Ingresa tu API Key de Anthropic en el panel lateral para continuar.")
+            st.error("⚠️ Ingresa tu API Key de Google Gemini en el panel lateral para continuar.")
             return
 
         # Extraer texto
@@ -502,8 +493,7 @@ def main():
         st.success(f"✅ Texto extraído: {len(texto_pei):,} caracteres")
 
         # Configurar cliente con API key del usuario
-        import os
-        os.environ["ANTHROPIC_API_KEY"] = api_key
+        genai.configure(api_key=api_key)
 
         # Analizar con IA
         with st.spinner("🤖 Analizando tu PEI con IA... esto puede tomar 15-30 segundos"):
@@ -634,7 +624,7 @@ def main():
     st.markdown("""
     <div class="footer-note">
         🏛️ CEPLAN Checker · Proyecto Design Thinking · Generación del Modelo de Negocio 2026<br>
-        Desarrollado con Python · Streamlit · Anthropic Claude API
+        Desarrollado con Python · Streamlit · Google Gemini API
     </div>
     """, unsafe_allow_html=True)
 
