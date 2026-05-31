@@ -403,8 +403,8 @@ def main():
         st.markdown("---")
         st.markdown("### 📋 ¿Qué analiza el sistema?")
         componentes_lista = [
-            "✅ Misión institucional",
             "✅ Situación futura deseada",
+            "✅ Misión institucional",
             "✅ Objetivos Estratégicos (OEI)",
             "✅ Acciones Estratégicas (AEI)",
             "✅ Indicadores",
